@@ -1,0 +1,45 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: subprocess-inference
+  namespace: inference-benchmark
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "5"
+        autoscaling.knative.dev/target: "2"
+        autoscaling.knative.dev/window: "10s"
+        autoscaling.knative.dev/target-burst-capacity: "-1"
+    spec:
+      timeoutSeconds: 120
+      containers:
+        - image: image-registry.openshift-image-registry.svc:5000/inference-benchmark/subprocess-inference:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: REGISTRY_ENDPOINT
+              value: "http://model-registry.inference-benchmark.svc.cluster.local:8080"
+            - name: MINIO_ENDPOINT
+              value: "http://minio.minio.svc.cluster.local:9000"
+            # LAB DEFAULTS — replace with a Secret reference in production
+            - name: MINIO_ACCESS_KEY
+              value: "minioadmin"
+            - name: MINIO_SECRET_KEY
+              value: "minioadmin123"
+            - name: MINIO_BUCKET
+              value: "inference-models"
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5

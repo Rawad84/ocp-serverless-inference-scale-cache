@@ -1,0 +1,18 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+
+# Heavy imports — these create the subprocess startup overhead being measured.
+# Versions are intentionally unpinned to match whatever the setup job installed
+# (it ran pip install with no pins, so it got the latest at job time).
+requests
+boto3
+numpy
+pandas
+scipy
+scikit-learn
+joblib
+
+# CPU-only torch — included to simulate real import weight
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.3.0+cpu

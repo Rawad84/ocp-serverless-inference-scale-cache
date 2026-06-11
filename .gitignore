@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Model artifacts — never commit trained model files
+*.npz
+*.joblib
+*.pt
+*.onnx
+*.zip
+
+# Test results — generated at runtime
+results/
+
+# Secrets — never commit
+.env
+s3-secret-plain.yaml
+pub-cert.pem
+*.key
+*.pem
+
+# Personal notes
+my_notes.txt
+
+# OS
+.DS_Store
+*.log

@@ -1,0 +1,20 @@
+# KafkaSource reads from inference-requests topic and delivers
+# each message as an HTTP POST (CloudEvent) to the Knative Service.
+# KPA autoscaling still works — traffic flows through Activator.
+apiVersion: sources.knative.dev/v1beta1
+kind: KafkaSource
+metadata:
+  name: inference-requests-source
+  namespace: inference-benchmark
+spec:
+  consumerGroup: inference-knative-consumer
+  bootstrapServers:
+    - inference-kafka-kafka-bootstrap.inference-benchmark.svc:9092
+  topics:
+    - inference-requests
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: cache-aware-inference-queue
+      namespace: inference-benchmark

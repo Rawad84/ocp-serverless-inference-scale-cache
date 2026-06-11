@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inference-benchmark
+  labels:
+    app: inference-benchmark
+---
+# LAB DEFAULTS — change these values before deploying in any shared or production environment
+apiVersion: v1
+kind: Secret
+metadata:
+  name: model-registry-db-secret
+  namespace: inference-benchmark
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: registrypass
+  MYSQL_DATABASE: model_registry
+  MYSQL_USER: registry
+  MYSQL_PASSWORD: registrypass
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-registry-pvc
+  namespace: inference-benchmark
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3-csi
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Standalone model registry with MySQL sidecar
+# Image: quay.io/opendatahub/model-registry:v0.3.9
+# Binary lives at /model-registry inside the container (not in PATH)
+# MySQL is needed — the proxy command defaults to embedmd+mysql backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-registry
+  namespace: inference-benchmark
+  labels:
+    app: model-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: model-registry
+  template:
+    metadata:
+      labels:
+        app: model-registry
+    spec:
+      containers:
+        - name: mysql
+          image: registry.redhat.io/rhel9/mysql-80:latest
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: model-registry-db-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: model-registry-db-secret
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: model-registry-db-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: model-registry-db-secret
+                  key: MYSQL_PASSWORD
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/mysql
+        - name: model-registry
+          image: quay.io/opendatahub/model-registry:v0.3.9
+          command:
+            - /model-registry
+            - proxy
+            - --hostname=0.0.0.0
+            - --port=8080
+            - --embedmd-database-type=mysql
+            - --embedmd-database-dsn=registry:registrypass@tcp(localhost:3306)/model_registry
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /api/model_registry/v1alpha3/registered_models
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 20
+      volumes:
+        - name: db-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-registry
+  namespace: inference-benchmark
+spec:
+  selector:
+    app: model-registry
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

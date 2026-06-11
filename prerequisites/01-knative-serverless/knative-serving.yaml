@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: knative-serving
+---
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: knative-serving
+spec:
+  config:
+    autoscaler:
+      # How long Knative waits after last request before starting scale-down
+      scale-to-zero-grace-period: "2m"
+      # How long pod is retained after it would have been scaled to zero
+      # Keeps importlib and model caches warm between batches
+      scale-to-zero-pod-retention-period: "5m"
+    defaults:
+      revision-timeout-seconds: "300"

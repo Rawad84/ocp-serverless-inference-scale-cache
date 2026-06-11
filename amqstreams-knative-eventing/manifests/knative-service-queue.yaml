@@ -1,0 +1,63 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: cache-aware-inference-queue
+  namespace: inference-benchmark
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "5"
+        autoscaling.knative.dev/target: "2"
+        autoscaling.knative.dev/window: "10s"
+    spec:
+      timeoutSeconds: 180
+      volumes:
+        - name: handlers
+          persistentVolumeClaim:
+            claimName: inference-handlers-pvc
+            readOnly: true
+      containers:
+        - image: image-registry.openshift-image-registry.svc:5000/inference-benchmark/cache-aware-inference-queue:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: REGISTRY_ENDPOINT
+              value: "http://model-registry.inference-benchmark.svc.cluster.local:8080"
+            - name: MINIO_ENDPOINT
+              value: "http://minio.minio.svc.cluster.local:9000"
+            # LAB DEFAULTS — replace with a Secret reference in production
+            - name: MINIO_ACCESS_KEY
+              value: "minioadmin"
+            - name: MINIO_SECRET_KEY
+              value: "minioadmin123"
+            - name: MINIO_BUCKET
+              value: "inference-models"
+            - name: MODEL_CACHE_SIZE
+              value: "30"
+            - name: MODEL_CACHE_TTL_S
+              value: "1800"
+            - name: HANDLER_BASE_PATH
+              value: "/mnt/handlers"
+            - name: KAFKA_BOOTSTRAP
+              value: "inference-kafka-kafka-bootstrap.inference-benchmark.svc:9092"
+            - name: KAFKA_RESULTS_TOPIC
+              value: "inference-results"
+          volumeMounts:
+            - name: handlers
+              mountPath: /mnt/handlers
+              readOnly: true
+          resources:
+            requests:
+              cpu: "1"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "10Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5

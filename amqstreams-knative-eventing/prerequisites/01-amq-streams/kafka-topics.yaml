@@ -1,0 +1,27 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: inference-requests
+  namespace: inference-benchmark
+  labels:
+    strimzi.io/cluster: inference-kafka
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 3600000    # 1 hour
+    cleanup.policy: delete
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: inference-results
+  namespace: inference-benchmark
+  labels:
+    strimzi.io/cluster: inference-kafka
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 3600000
+    cleanup.policy: delete

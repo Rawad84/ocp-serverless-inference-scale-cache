@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: setup-models-zip
+  namespace: inference-benchmark
+  labels:
+    app: inference-benchmark
+    component: setup-zip
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: inference-benchmark
+        component: setup-zip
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: setup
+          image: python:3.11-slim
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              pip install --quiet --target /tmp/pylib \
+                numpy scikit-learn joblib boto3 requests
+              PYTHONPATH=/tmp/pylib python /scripts/setup_models.py --instances 100
+          env:
+            - name: IN_CLUSTER
+              value: "true"
+            - name: MINIO_ENDPOINT
+              value: "http://minio.minio.svc.cluster.local:9000"
+            # LAB DEFAULTS — replace with a Secret reference in production
+            - name: MINIO_ACCESS_KEY
+              value: "minioadmin"
+            - name: MINIO_SECRET_KEY
+              value: "minioadmin123"
+            - name: MINIO_BUCKET
+              value: "inference-models"
+            - name: REGISTRY_ENDPOINT
+              value: "http://model-registry.inference-benchmark.svc.cluster.local:8080"
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+      volumes:
+        - name: script
+          configMap:
+            name: setup-models-zip-script
+            defaultMode: 0755
